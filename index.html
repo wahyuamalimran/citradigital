@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload dan Histogram Gambar</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .container {
+    text-align: center;
+    margin-top: 50px;
+  }
+  .canvas-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+  }
+  canvas {
+    max-width: 400px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Upload dan Histogram Gambar</h2>
+  <input type="file" id="fileInput" accept="image/*">
+  <div class="canvas-container" id="output"></div>
+</div>
+
+<script>
+document.getElementById('fileInput').addEventListener('change', function(event) {
+  var file = event.target.files[0];
+  var reader = new FileReader();
+
+  reader.onload = function(event) {
+    var img = new Image();
+    img.onload = function() {
+      var canvasOriginal = document.createElement('canvas');
+      var ctxOriginal = canvasOriginal.getContext('2d');
+
+      // Menggambar gambar berwarna asli
+      canvasOriginal.width = img.width;
+      canvasOriginal.height = img.height;
+      ctxOriginal.drawImage(img, 0, 0);
+      document.getElementById('output').appendChild(canvasOriginal);
+
+      // Menampilkan histogram gambar berwarna asli
+      displayHistogram('HistogramOriginal', ctxOriginal);
+
+      // Menambahkan filter warna merah
+      var canvasRed = applyColorFilter(canvasOriginal, 'red', 'HistogramRed');
+
+      // Menambahkan filter warna biru
+      var canvasBlue = applyColorFilter(canvasOriginal, 'blue', 'HistogramBlue');
+
+      // Mengonversi gambar menjadi greyscale
+      var canvasGreyscale = applyGreyscale(canvasOriginal, 'HistogramGreyscale');
+
+      // Menambahkan histogram gambar dengan filter warna merah
+      displayHistogram('HistogramRed', canvasRed.getContext('2d'));
+
+      // Menambahkan histogram gambar dengan filter warna biru
+      displayHistogram('HistogramBlue', canvasBlue.getContext('2d'));
+
+      // Menambahkan histogram gambar greyscale
+      displayHistogram('HistogramGreyscale', canvasGreyscale.getContext('2d'));
+    };
+
+    img.src = event.target.result;
+  };
+
+  reader.readAsDataURL(file);
+});
+
+function applyColorFilter(canvasOriginal, color, histogramId) {
+  var canvasFiltered = document.createElement('canvas');
+  var ctxFiltered = canvasFiltered.getContext('2d');
+
+  canvasFiltered.width = canvasOriginal.width;
+  canvasFiltered.height = canvasOriginal.height;
+
+  // Copy gambar asli ke gambar terfilter
+  ctxFiltered.drawImage(canvasOriginal, 0, 0);
+
+  // Menerapkan filter warna
+  var imageData = ctxFiltered.getImageData(0, 0, canvasFiltered.width, canvasFiltered.height);
+  var data = imageData.data;
+  for (var i = 0; i < data.length; i += 4) {
+    if (color === 'red') {
+      data[i + 1] = 0; // Hijau
+      data[i + 2] = 0; // Biru
+    } else if (color === 'blue') {
+      data[i] = 0; // Merah
+      data[i + 1] = 0; // Hijau
+    }
+  }
+  ctxFiltered.putImageData(imageData, 0, 0);
+
+  document.getElementById('output').appendChild(canvasFiltered);
+
+  return canvasFiltered;
+}
+
+function applyGreyscale(canvasOriginal, histogramId) {
+  var canvasGreyscale = document.createElement('canvas');
+  var ctxGreyscale = canvasGreyscale.getContext('2d');
+
+  canvasGreyscale.width = canvasOriginal.width;
+  canvasGreyscale.height = canvasOriginal.height;
+
+  // Menggambar gambar greyscale
+  ctxGreyscale.drawImage(canvasOriginal, 0, 0);
+  var imageData = ctxGreyscale.getImageData(0, 0, canvasGreyscale.width, canvasGreyscale.height);
+  var data = imageData.data;
+
+  for (var i = 0; i < data.length; i += 4) {
+    var avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+    data[i] = avg; // Merah
+    data[i + 1] = avg; // Hijau
+    data[i + 2] = avg; // Biru
+  }
+
+  ctxGreyscale.putImageData(imageData, 0, 0);
+
+  document.getElementById('output').appendChild(canvasGreyscale);
+
+  return canvasGreyscale;
+}
+
+function displayHistogram(histogramId, ctx) {
+  var imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  var data = imageData.data;
+  var histogramData = new Array(256).fill(0);
+
+  for (var i = 0; i < data.length; i += 4) {
+    var grayValue = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
+    histogramData[grayValue]++;
+  }
+
+  var histogramCanvas = document.createElement('canvas');
+  histogramCanvas.id = histogramId;
+  histogramCanvas.width = 400;
+  histogramCanvas.height = 200;
+  document.getElementById('output').appendChild(histogramCanvas);
+
+  var histogramCtx = histogramCanvas.getContext('2d');
+  new Chart(histogramCtx, {
+    type: 'bar',
+    data: {
+      labels: Array.from(Array(256).keys()),
+      datasets: [{
+        label: 'Histogram',
+        data: histogramData,
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+        borderColor: 'rgba(0, 0, 0, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
